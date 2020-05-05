@@ -17,4 +17,21 @@ struct Point {
 	float y_;
 };
 
+struct GridPoint {
+	GridPoint(int x, int y):x_(x),y_(y) {}
+	GridPoint(const GridPoint& other):x_(other.x_),y_(other.y_){}
+	GridPoint& operator=(GridPoint& other) {
+		x_ = other.x_;
+		y_ = other.y_;
+		return *this;
+	}
+	void SwapXY() {
+		int temp = x_;
+		x_ = y_;
+		y_ = temp;
+	}
+	int x_;
+	int y_;
+};
+
 #endif

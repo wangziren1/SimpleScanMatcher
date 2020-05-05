@@ -17,7 +17,7 @@ Point TransformPoint(const Point& point, const Pose& pose) {
 }
 
 Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
-    vector<Point>& point_cloud, std::shared_ptr<Map> map) {
+    const vector<Point>& point_cloud, const Map& map) {
   // rotate point clouds rotated by delta theta
   steady_clock::time_point t1 = steady_clock::now();
   vector<RotatedPointCloud> rotated_point_clouds;
@@ -44,8 +44,8 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
   for (int index = 0; index < rotated_point_clouds.size(); ++index) {
     for (int delta_x = -max_delta_x; delta_x <= max_delta_x; ++delta_x) {
       for (int delta_y = -max_delta_y; delta_y <= max_delta_y; ++delta_y) {
-        Candidate candidate(index, delta_x * map->Resolution(), delta_y * 
-            map->Resolution());
+        Candidate candidate(index, delta_x * map.Resolution(), delta_y * 
+            map.Resolution());
         candidates.push_back(candidate);
       }
     }
@@ -60,8 +60,8 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
     float score = 0;
     for (auto& point : rotated_point_clouds[candidate.
         rotated_point_cloud_index_].point_cloud_) {
-      score += map->GetScore(point.x_ + candidate.delta_x_, point.y_ + 
-          candidate.delta_y_);
+      score += map.GetLogOdds(Point(point.x_ + candidate.delta_x_, point.y_ + 
+          candidate.delta_y_));
     }
     score /= rotated_point_clouds[candidate.rotated_point_cloud_index_].
         point_cloud_.size();
@@ -87,48 +87,48 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
   return best_pose;
 }
 
-// Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
-//     vector<Point>& point_cloud, std::shared_ptr<Map> map) {
-//   // rotate point clouds rotated by delta theta
-//   steady_clock::time_point t1 = steady_clock::now();
-//   float max_score = 0;
-//   Pose best_pose;
-//   for (float delta_theta = -max_angle_; delta_theta <= max_angle_; delta_theta
-//       +=angle_step_) {
-//     RotatedPointCloud rotated_point_cloud;
-//     Pose new_pose(initial_pose.x_, initial_pose.y_, initial_pose.theta_ + 
-//         delta_theta * M_PI / 180.0);
-//     rotated_point_cloud.rotated_pose_ = new_pose;
-//     for (auto& point : point_cloud) {
-//       rotated_point_cloud.point_cloud_.push_back(TransformPoint(point, new_pose));
-//     }
+Pose CorrelativeScanMatcher::ComputePoseAnother(const Pose& initial_pose,
+    vector<Point>& point_cloud, const Map& map) {
+  // rotate point clouds rotated by delta theta
+  steady_clock::time_point t1 = steady_clock::now();
+  float max_score = 0;
+  Pose best_pose;
+  for (float delta_theta = -max_angle_; delta_theta <= max_angle_; delta_theta
+      +=angle_step_) {
+    RotatedPointCloud rotated_point_cloud;
+    Pose new_pose(initial_pose.x_, initial_pose.y_, initial_pose.theta_ + 
+        delta_theta * M_PI / 180.0);
+    rotated_point_cloud.rotated_pose_ = new_pose;
+    for (auto& point : point_cloud) {
+      rotated_point_cloud.point_cloud_.push_back(TransformPoint(point, new_pose));
+    }
 
-//     int max_delta_x = floor(search_window_width_ / 2);
-//     int max_delta_y = floor(search_window_height_ / 2);
-//     for (int delta_x = -max_delta_x; delta_x <= max_delta_x; ++delta_x) {
-//       for (int delta_y = -max_delta_y; delta_y <= max_delta_y; ++delta_y) {
-//         float score = 0;
-//         for (const auto& point : rotated_point_cloud.point_cloud_) {
-//           float x = point.x_ + delta_x * map->Resolution();
-//           float y = point.y_ + delta_y * map->Resolution();
-//           score += map->GetScore(x, y);
-//         }
-//         score /= rotated_point_cloud.point_cloud_.size();
-//         if (score > max_score) {
-//           max_score = score;
-//           float best_x = rotated_point_cloud.rotated_pose_.x_ + delta_x * 
-//               map->Resolution();
-//           float best_y = rotated_point_cloud.rotated_pose_.y_ + delta_y * 
-//               map->Resolution();
-//           best_pose = Pose(best_x, best_y, rotated_point_cloud.rotated_pose_.
-//               theta_);
-//         }
-//       }
-//     }
-//   }
-//   cout << "Total time takes: " << duration_cast<milliseconds>(
-//         steady_clock::now() - t1).count() << " ms" << endl;
-//   cout << "pose: (" << best_pose.x_ << "," << best_pose.y_ << "," 
-//       << best_pose.theta_ << ") max_score: " << max_score << endl;
-//   return best_pose;
-// }
+    int max_delta_x = floor(search_window_width_ / 2);
+    int max_delta_y = floor(search_window_height_ / 2);
+    for (int delta_x = -max_delta_x; delta_x <= max_delta_x; ++delta_x) {
+      for (int delta_y = -max_delta_y; delta_y <= max_delta_y; ++delta_y) {
+        float score = 0;
+        for (const auto& point : rotated_point_cloud.point_cloud_) {
+          float x = point.x_ + delta_x * map.Resolution();
+          float y = point.y_ + delta_y * map.Resolution();
+          score += map.GetLogOdds(Point(x, y));
+        }
+        score /= rotated_point_cloud.point_cloud_.size();
+        if (score > max_score) {
+          max_score = score;
+          float best_x = rotated_point_cloud.rotated_pose_.x_ + delta_x * 
+              map.Resolution();
+          float best_y = rotated_point_cloud.rotated_pose_.y_ + delta_y * 
+              map.Resolution();
+          best_pose = Pose(best_x, best_y, rotated_point_cloud.rotated_pose_.
+              theta_);
+        }
+      }
+    }
+  }
+  cout << "Total time takes: " << duration_cast<milliseconds>(
+        steady_clock::now() - t1).count() << " ms" << endl;
+  cout << "pose: (" << best_pose.x_ << "," << best_pose.y_ << "," 
+      << best_pose.theta_ << ") max_score: " << max_score << endl;
+  return best_pose;
+}

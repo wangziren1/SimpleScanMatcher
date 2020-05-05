@@ -6,11 +6,13 @@
 #include <cmath>
 #include <vector>
 #include <memory>
+#include <chrono>
 #include <iostream>
 #include "scanmatch/correlative_scan_match.h"
 #include "scanmatch/map.h"
 
 using namespace std;
+using namespace std::chrono;
 
 class Node {
  public:
@@ -29,7 +31,7 @@ class Node {
 	ros::Publisher map_pub_;
 	ros::Publisher point_cloud_pub_;
 	vector<Pose> poses_;
-	std::shared_ptr<Map> map_;
+	Map map_;
 	CorrelativeScanMatcher correlative_scan_matcher_;
 	bool first_scan_;
 };
@@ -37,8 +39,8 @@ class Node {
 Node::Node() {
 	sub_ = n_.subscribe("scan", 100, &Node::CallBack, this);
 	trajectory_pub_ = n_.advertise<visualization_msgs::Marker>("trajectory", 50);
-	map_pub_ = n_.advertise<visualization_msgs::Marker>("map", 50);
 	point_cloud_pub_ = n_.advertise<visualization_msgs::Marker>("point_cloud", 50);
+	
 	first_scan_ = true;
 	// initial pose
 	poses_.push_back(Pose(0, 0, 0));
@@ -47,7 +49,7 @@ Node::Node() {
 void Node::CallBack(const sensor_msgs::LaserScan::ConstPtr& scan) {
 	if (first_scan_) {
 		vector<Point> point_cloud = GetPointCloud(scan);
-		map_ = std::make_shared<Map>(point_cloud);
+		map_.Update(poses_.back(), point_cloud);
 		first_scan_ = false;
 	} else {
 		Pose initial_pose(poses_.back());
@@ -57,8 +59,8 @@ void Node::CallBack(const sensor_msgs::LaserScan::ConstPtr& scan) {
 		poses_.push_back(pose);
 		vector<Point> world_point_cloud = TransformPointCloudFromLaserToWorld(pose,
 				point_cloud);
+		map_.Update(pose, world_point_cloud);
 		Visualize(world_point_cloud);
-		map_ = std::make_shared<Map>(world_point_cloud);
 	}
 }
 
@@ -90,28 +92,24 @@ vector<Point> Node::TransformPointCloudFromLaserToWorld(const Pose& pose,
 }
 
 void Node::Visualize(const vector<Point>& point_cloud) {
-	visualization_msgs::Marker trajectory_line, map_points, current_points;
-	trajectory_line.header.frame_id = map_points.header.frame_id = 
+	visualization_msgs::Marker trajectory_line, current_points;
+	trajectory_line.header.frame_id = 
 			current_points.header.frame_id = "/my_frame";
-	trajectory_line.header.stamp = map_points.header.stamp = 
+	trajectory_line.header.stamp = 
 			current_points.header.stamp = ros::Time::now();
-	trajectory_line.ns = map_points.ns = current_points.ns = "my_namespace";
-	trajectory_line.action = map_points.action = current_points.action = 
+	trajectory_line.ns = current_points.ns = "my_namespace";
+	trajectory_line.action = current_points.action = 
 			visualization_msgs::Marker::ADD;
-	trajectory_line.pose.orientation.w = map_points.pose.orientation.w = 
+	trajectory_line.pose.orientation.w = 
 			current_points.pose.orientation.w = 1.0;
 	
 	trajectory_line.id = 0;
-	map_points.id = 1;
 	current_points.id = 2;
 
 	trajectory_line.type = visualization_msgs::Marker::LINE_STRIP;
-	map_points.type = visualization_msgs::Marker::POINTS;
 	current_points.type = visualization_msgs::Marker::POINTS;
 
 	trajectory_line.scale.x = 0.05;
-	map_points.scale.x = 0.02;
-	map_points.scale.y = 0.02;
 	current_points.scale.x = 0.02;
 	current_points.scale.y = 0.02;
 
@@ -119,11 +117,6 @@ void Node::Visualize(const vector<Point>& point_cloud) {
   trajectory_line.color.g = 0.41;
 	trajectory_line.color.b = 0.8;
 	trajectory_line.color.a = 0.8;
-
-	map_points.color.r = 1;
-	map_points.color.g = 1;
-	map_points.color.b = 1;
-	map_points.color.a = 1;
 
 	current_points.color.r = 1;
 	current_points.color.a = 1;
@@ -136,14 +129,6 @@ void Node::Visualize(const vector<Point>& point_cloud) {
 		trajectory_line.points.push_back(p);
 	}
 
-	for (auto& point : map_->PointCloud()) {
-		geometry_msgs::Point p;
-		p.x = point.x_;
-		p.y = point.y_;
-		p.z = 0;
-		map_points.points.push_back(p);
-	}
-
 	for (auto& point : point_cloud) {
 		geometry_msgs::Point p;
 		p.x = point.x_;
@@ -153,9 +138,9 @@ void Node::Visualize(const vector<Point>& point_cloud) {
 	}
 
 	trajectory_pub_.publish(trajectory_line);
-	map_pub_.publish(map_points);
 	point_cloud_pub_.publish(current_points);
 }
+
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "scan_matcher");

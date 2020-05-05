@@ -1,74 +1,102 @@
 #include "scanmatch/map.h"
-#include <cmath>
 #include <iostream>
+#include <chrono>
 using namespace std;
+using namespace std::chrono;
 
-GaussianDistribution::GaussianDistribution():gaussian_kernel_size_(3),
-    sigma2_(0.3), half_kernel_(gaussian_kernel_size_ / 2){
-  cout << "kernel:" << endl;
-  probability_distribution_.resize(gaussian_kernel_size_);
-  for (int j = -half_kernel_; j <= half_kernel_; ++j) {
-    probability_distribution_[j + half_kernel_].resize(gaussian_kernel_size_);
-    for (int i = -half_kernel_; i <= half_kernel_; ++i) {
-      float dist = sqrt(i * i + j * j);
-      probability_distribution_[j + half_kernel_][i + half_kernel_] = 
-          1 / sqrt(2 * M_PI * sigma2_) * exp(- (dist * dist) / (2 * sigma2_));
-      cout << probability_distribution_[j + half_kernel_][i + half_kernel_] << " ";
+float ProbToLogOdds(float p) {
+  return log(p / (1 - p));
+}
+
+float LogOddsToProb(float l) {
+  return 1 - 1 / (1 + exp(l));
+}
+
+Map::Map():resolution_(0.05),prior_log_odds_(ProbToLogOdds(0.5)),
+    hit_log_odds_(ProbToLogOdds(0.55)), miss_log_odds_(ProbToLogOdds(0.49)), 
+    offset_x_(500 * resolution_),offset_y_(500 * resolution_),
+    bottom_left_corner_(1000, 1000),top_right_corner_(-1000, -1000),
+    grid_(1000, vector<float>(1000, prior_log_odds_)) {
+  // cout << grid_.size() << "," << grid_[0].size() << endl;
+}
+
+float Map::GetLogOdds(const Point& p) const {
+  GridPoint grid_point = GetGridCoordinate(p);
+  return grid_[grid_point.y_][grid_point.x_];
+}
+
+void Map::Update(const Pose& pose, const vector<Point>& point_cloud) {
+  // hit
+  for (const auto& point : point_cloud) {
+    GridPoint hit_point = GetGridCoordinate(point);
+    grid_[hit_point.y_][hit_point.x_] = grid_[hit_point.y_][hit_point.x_] + 
+        hit_log_odds_ - prior_log_odds_;
+  }
+  // miss
+  GridPoint grid_pose = GetGridCoordinate(Point(pose.x_, pose.y_));
+  for (const auto& end : point_cloud) {
+    GridPoint grid_end = GetGridCoordinate(end);
+    vector<GridPoint> miss_points = Bresenham(grid_pose, grid_end);
+    for (const auto& miss_point : miss_points) {
+      grid_[miss_point.y_][miss_point.x_] = grid_[miss_point.y_][miss_point.x_] + 
+          miss_log_odds_ - prior_log_odds_;
     }
-    cout << endl;
   }
 }
 
-Map::Map(const vector<Point>& point_cloud) : resolution_(0.05),
-    point_cloud_(point_cloud) {
-  // find top right corner and bottom left corner
-  float min_x = point_cloud[0].x_;
-  float min_y = point_cloud[0].y_;
-  float max_x = point_cloud[0].x_;
-  float max_y = point_cloud[0].y_;
-  for (auto& point : point_cloud) {
-    if (point.x_ < min_x) min_x = point.x_;
-    if (point.y_ < min_y) min_y = point.y_;
-    if (point.x_ > max_x) max_x = point.x_;
-    if (point.y_ > max_y) max_y = point.y_;
+vector<GridPoint> Bresenham(GridPoint start, GridPoint end) {
+  bool steep = abs(end.y_ -start.y_) > abs(end.x_ -start.x_);
+  if (steep) {
+    start.SwapXY();
+    end.SwapXY();
   }
-  // expand box width and height two times and translate bottom left corner 
-  // of box to (0,0)
-  float width = max_x - min_x;
-  float height = max_y - min_y;
-  float new_bottom_left_corner_x = (min_x - width / 2) >= 0 ? 
-      ceil(min_x - width / 2) : floor(min_x - width / 2);
-  float new_bottom_left_corner_y  = (min_y - height / 2) >= 0 ?
-      ceil(min_y - height / 2) : floor(min_y - height / 2);
-  Point new_bottom_left_corner(new_bottom_left_corner_x, 
-      new_bottom_left_corner_y);
-  offset_x_ = -new_bottom_left_corner.x_;
-  offset_y_ = -new_bottom_left_corner.y_;
-  float new_width = 2 * width;
-  float new_height = 2 * height;
-  grid_.resize(ceil(new_height / resolution_));
-  for (auto& row : grid_) {
-    row = vector<float>(ceil(new_width / resolution_), 0);
+  bool swap = false;
+  if (start.x_ > end.x_) {
+    swap = true;
+    GridPoint temp(start);
+    start = end;
+    end = temp;
   }
-  // fill map
-  for (auto& point : point_cloud) {
-    int x = floor((point.x_ + offset_x_) / resolution_);
-    int y = floor((point.y_ + offset_y_) / resolution_);
-    int half_kernel = gaussian_distribution_.HalfKernel();
-    for (int j = -half_kernel; j <= half_kernel; ++j) {
-      for (int i = -half_kernel; i <= half_kernel; ++i) {
-        grid_[y+j][x+i] = max(grid_[y+j][x+i],
-            gaussian_distribution_.ProbabilityDistribution()
-            [j+half_kernel][i+half_kernel]);
+  int deltax = end.x_ -start.x_;
+  int deltay = abs(end.y_ -start.y_);
+  int error = 0;
+
+  int y_step = 0;
+  if (start.y_ < end.y_) y_step = 1;
+  else y_step = -1;
+  int x_n =start.x_;
+  int y_n =start.y_;
+
+  vector<GridPoint> result;
+  result.reserve(deltax + 1);
+  if (steep) {
+    for (int n = 0; n <= deltax; ++n) {
+      result.push_back(GridPoint(y_n, x_n));
+      x_n++;
+      error += deltay;
+      if (2 * error >= deltax) {
+        y_n += y_step;
+        error -= deltax;
+      }
+    }
+  } else {
+    for (int n = 0; n <= deltax; ++n) {
+      result.push_back(GridPoint(x_n, y_n));
+      x_n++;
+      error += deltay;
+      if (2 * error >= deltax) {
+        y_n += y_step;
+        error -= deltax;
       }
     }
   }
+  if (swap) {
+    for (int i = 0, j = result.size()-1; i < j; ++i, --j) {
+      GridPoint temp(result[i]);
+      result[i] = result[j];
+      result[j] = temp;
+    }
+  }
+  result.pop_back();
+  return result;
 }
-
-float Map::GetScore(float x, float y) {
-  int grid_x = floor((x + offset_x_) / resolution_);
-  int grid_y = floor((y + offset_y_) / resolution_);
-  return grid_[grid_y][grid_x];
-}
-
-GaussianDistribution Map::gaussian_distribution_;

@@ -137,6 +137,10 @@ include_directories(
 add_executable(${PROJECT_NAME}_node src/main.cpp 
                src/correlative_scan_match.cpp
                src/map.cpp)
+add_executable(beam_test src/test.cpp 
+               src/map.cpp)
+add_executable(map_test src/map_test.cpp 
+               src/map.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -152,6 +156,13 @@ add_executable(${PROJECT_NAME}_node src/main.cpp
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
 )
+target_link_libraries(beam_test
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(map_test
+  ${catkin_LIBRARIES}
+)
+
 
 #############
 ## Install ##

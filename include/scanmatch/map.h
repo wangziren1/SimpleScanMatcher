@@ -3,35 +3,36 @@
 
 #include <vector>
 #include "scanmatch/pose_and_point.h"
+#include <cmath>
 using std::vector;
 
-class GaussianDistribution {
- public:
-  GaussianDistribution();
-  const vector<vector<float>>& ProbabilityDistribution() {
-      return probability_distribution_;}
-  int HalfKernel() {return half_kernel_;}
- private:
-  int gaussian_kernel_size_;
-  int half_kernel_;
-  float sigma2_;
-  vector<vector<float>> probability_distribution_;
-};
+vector<GridPoint> Bresenham(GridPoint start, GridPoint end);
 
 class Map {
  public:
-  Map(const vector<Point>& point_cloud);
-  vector<Point>& PointCloud() {return point_cloud_;}
-  float Resolution() {return resolution_;}
-  float GetScore(float x, float y);
+  Map();
+  float Resolution() const {return resolution_;}
+  float GetLogOdds(const Point& p) const;
+  void Update(const Pose& pose, const vector<Point>& point_cloud);
 
  private:
+  GridPoint GetGridCoordinate(const Point& p) const {
+    int grid_x = floor((p.x_ + offset_x_) / resolution_);
+    int grid_y = floor((p.y_ + offset_y_) / resolution_);
+    // if (grid_x >= 1000 || grid_y >= 1000) 
+    //   cout << "out of range:(" << grid_x << "," << grid_y << ") " <<
+    //   "(" << p.x_ << "," << p.y_ << ")" << endl;
+    return GridPoint(grid_x, grid_y);
+  }
   float resolution_;
-  vector<Point> point_cloud_;
-  vector<vector<float>> grid_;
+  float prior_log_odds_;
+  float hit_log_odds_;
+  float miss_log_odds_;
   float offset_x_;
   float offset_y_;
-  static GaussianDistribution gaussian_distribution_;
+  Point bottom_left_corner_;
+  Point top_right_corner_;
+  vector<vector<float>> grid_;
 };
 
 #endif

@@ -28,8 +28,10 @@ class CorrelativeScanMatcher {
  public:
   CorrelativeScanMatcher():max_angle_(20),angle_step_(1),search_window_width_(5),
     search_window_height_(5) {}
-  Pose ComputePose(const Pose& initial_pose, vector<Point>& point_cloud, 
-      std::shared_ptr<Map> map);
+  Pose ComputePose(const Pose& initial_pose, const vector<Point>& point_cloud, 
+      const Map& map);
+  Pose ComputePoseAnother(const Pose& initial_pose, vector<Point>& point_cloud, 
+      const Map& map);
  private:
   float max_angle_;
   float angle_step_; // degree
