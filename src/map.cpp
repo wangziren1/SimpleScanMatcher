@@ -4,33 +4,56 @@
 using namespace std;
 using namespace std::chrono;
 
-float ProbToLogOdds(float p) {
-  return log(p / (1 - p));
+inline float ProbToCost(float prob) {
+  return 1 - prob;
 }
 
-float LogOddsToProb(float l) {
-  return 1 - 1 / (1 + exp(l));
+inline float CostToProb(float cost) {
+  return 1 - cost;
 }
 
-Map::Map():resolution_(0.05),prior_log_odds_(ProbToLogOdds(0.5)),
-    hit_log_odds_(ProbToLogOdds(0.55)), miss_log_odds_(ProbToLogOdds(0.49)), 
-    offset_x_(500 * resolution_),offset_y_(500 * resolution_),
-    bottom_left_corner_(1000, 1000),top_right_corner_(-1000, -1000),
-    grid_(1000, vector<float>(1000, prior_log_odds_)) {
-  // cout << grid_.size() << "," << grid_[0].size() << endl;
+inline float ProbToOdds(float prob) {
+  return prob / (1 - prob);
 }
 
-float Map::GetLogOdds(const Point& p) const {
-  GridPoint grid_point = GetGridCoordinate(p);
-  return grid_[grid_point.y_][grid_point.x_];
+inline float OddsToProb(float odd) {
+  return odd / (1 + odd);
+}
+
+inline int ProbToValue(float prob) {
+  return int(prob * 100);
+}
+
+inline float Clamp(float x) {
+  if (x < MinProb) return MinProb;
+  else if (x > MaxProb) return MaxProb;
+  else return x;
+}
+
+Map::Map():resolution_(0.05),width_(300),height_(300),
+    prior_prob_(0.5),hit_prob_(0.55),miss_prob_(0.49),
+    prior_odds_(ProbToOdds(prior_prob_)),
+    hit_odds_(ProbToOdds(hit_prob_)),
+    miss_odds_(ProbToOdds(miss_prob_)),
+    offset_x_(width_ * resolution_ / 2),
+    offset_y_(height_ * resolution_ / 2),
+    unknown_cost_(-1),
+    cost_(height_, vector<float>(width_, unknown_cost_)),
+    discrete_prob_(height_, vector<int>(width_, -1)){
 }
 
 void Map::Update(const Pose& pose, const vector<Point>& point_cloud) {
   // hit
   for (const auto& point : point_cloud) {
     GridPoint hit_point = GetGridCoordinate(point);
-    grid_[hit_point.y_][hit_point.x_] = grid_[hit_point.y_][hit_point.x_] + 
-        hit_log_odds_ - prior_log_odds_;
+    float& c = cost_[hit_point.y_][hit_point.x_];
+    int& discrete_prob = discrete_prob_[hit_point.y_][hit_point.x_];
+    if (c == unknown_cost_) {
+      c = ProbToCost(Clamp(OddsToProb(prior_odds_ * hit_odds_)));
+    } else {
+      c = ProbToCost(Clamp(OddsToProb(ProbToOdds(CostToProb(c)) * hit_odds_)));
+    }
+    discrete_prob = ProbToValue(CostToProb(c));
   }
   // miss
   GridPoint grid_pose = GetGridCoordinate(Point(pose.x_, pose.y_));
@@ -38,8 +61,14 @@ void Map::Update(const Pose& pose, const vector<Point>& point_cloud) {
     GridPoint grid_end = GetGridCoordinate(end);
     vector<GridPoint> miss_points = Bresenham(grid_pose, grid_end);
     for (const auto& miss_point : miss_points) {
-      grid_[miss_point.y_][miss_point.x_] = grid_[miss_point.y_][miss_point.x_] + 
-          miss_log_odds_ - prior_log_odds_;
+      float& c = cost_[miss_point.y_][miss_point.x_];
+      int& discrete_prob = discrete_prob_[miss_point.y_][miss_point.x_];
+      if (c == unknown_cost_) {
+        c = ProbToCost(Clamp(OddsToProb(prior_odds_ * miss_odds_)));
+      } else {
+        c = ProbToCost(Clamp(OddsToProb(ProbToOdds(CostToProb(c)) * miss_odds_)));
+      }
+      discrete_prob = ProbToValue(CostToProb(c));
     }
   }
 }

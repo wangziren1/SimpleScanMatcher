@@ -1,20 +1,11 @@
 #include <cmath>
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 using namespace std;
 using namespace std::chrono;
 
 #include "scanmatch/correlative_scan_match.h"
-
-
-Point TransformPoint(const Point& point, const Pose& pose) {
-  Point new_point;
-  new_point.x_ = cos(pose.theta_) * point.x_ - sin(pose.theta_) * point.y_ + 
-      pose.x_;
-  new_point.y_ = sin(pose.theta_) * point.x_ + cos(pose.theta_) * point.y_ + 
-      pose.y_;
-  return new_point;
-}
 
 Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
     const vector<Point>& point_cloud, const Map& map) {
@@ -32,8 +23,8 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
       rotated_point_cloud.point_cloud_.push_back(TransformPoint(point, new_pose));
     }
   }
-  cout << "Rotating point clouds takes: " << duration_cast<milliseconds>(
-        steady_clock::now() - t1).count() << " ms" << endl;
+  // cout << "Rotating point clouds takes: " << duration_cast<milliseconds>(
+  //       steady_clock::now() - t1).count() << " ms" << endl;
   // translate point clouds by delta_x and delta_y
   steady_clock::time_point t2 = steady_clock::now();
   vector<Candidate> candidates;
@@ -50,8 +41,8 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
       }
     }
   }
-  cout << "Generating candidates takes: " << duration_cast<milliseconds>(
-        steady_clock::now() - t2).count() << " ms" << endl;
+  // cout << "Generating candidates takes: " << duration_cast<milliseconds>(
+  //       steady_clock::now() - t2).count() << " ms" << endl;
   // compute score and find the maximium one
   steady_clock::time_point t3 = steady_clock::now();
   float max_score = 0;
@@ -60,21 +51,25 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
     float score = 0;
     for (auto& point : rotated_point_clouds[candidate.
         rotated_point_cloud_index_].point_cloud_) {
-      score += map.GetLogOdds(Point(point.x_ + candidate.delta_x_, point.y_ + 
+      score += map.GetProb(Point(point.x_ + candidate.delta_x_, point.y_ + 
           candidate.delta_y_));
+      // cout << fixed << setprecision(2) << map.GetProb(
+      //     Point(point.x_ + candidate.delta_x_, point.y_ + candidate.delta_y_)) 
+      //     << " ";
     }
     score /= rotated_point_clouds[candidate.rotated_point_cloud_index_].
         point_cloud_.size();
     candidate.score_ = score;
+    // cout << "\nscore:" << score << endl;
     if (score > max_score) {
       max_score = score;
       best_candidate = candidate;
     }
   }
-  cout << "Finding maximium score takes: " << duration_cast<milliseconds>(
-        steady_clock::now() - t3).count() << " ms" << endl;
-  cout << "Total time takes: " << duration_cast<milliseconds>(
-        steady_clock::now() - t1).count() << " ms" << endl;
+  // cout << "Finding maximium score takes: " << duration_cast<milliseconds>(
+  //       steady_clock::now() - t3).count() << " ms" << endl;
+  // cout << "Total time takes: " << duration_cast<milliseconds>(
+  //       steady_clock::now() - t1).count() << " ms" << endl;
   Pose best_pose;
   best_pose.theta_ = rotated_point_clouds[best_candidate.
       rotated_point_cloud_index_].rotated_pose_.theta_;
@@ -82,8 +77,7 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
       rotated_point_cloud_index_].rotated_pose_.x_ + best_candidate.delta_x_;
   best_pose.y_ = rotated_point_clouds[best_candidate.
       rotated_point_cloud_index_].rotated_pose_.y_ + best_candidate.delta_y_;
-  cout << "pose: (" << best_pose.x_ << "," << best_pose.y_ << "," 
-      << best_pose.theta_ << ") max_score: " << max_score << endl;
+  cout << "pose: " << best_pose << " max_score: " << max_score << endl;
   return best_pose;
 }
 
@@ -111,7 +105,7 @@ Pose CorrelativeScanMatcher::ComputePoseAnother(const Pose& initial_pose,
         for (const auto& point : rotated_point_cloud.point_cloud_) {
           float x = point.x_ + delta_x * map.Resolution();
           float y = point.y_ + delta_y * map.Resolution();
-          score += map.GetLogOdds(Point(x, y));
+          score += map.GetProb(Point(x, y));
         }
         score /= rotated_point_cloud.point_cloud_.size();
         if (score > max_score) {
@@ -128,7 +122,6 @@ Pose CorrelativeScanMatcher::ComputePoseAnother(const Pose& initial_pose,
   }
   cout << "Total time takes: " << duration_cast<milliseconds>(
         steady_clock::now() - t1).count() << " ms" << endl;
-  cout << "pose: (" << best_pose.x_ << "," << best_pose.y_ << "," 
-      << best_pose.theta_ << ") max_score: " << max_score << endl;
+  cout << "pose: " << best_pose << " max_score: " << max_score << endl;
   return best_pose;
 }

@@ -8,7 +8,7 @@ Panels:
         - /Status1
         - /Marker1
         - /Marker2
-        - /Marker3
+        - /Map1
       Splitter Ratio: 0.5
     Tree Height: 728
   - Class: rviz/Selection
@@ -58,15 +58,7 @@ Visualization Manager:
       Marker Topic: /trajectory
       Name: Marker
       Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /map
-      Name: Marker
-      Namespaces:
-        {}
+        my_namespace: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -74,8 +66,18 @@ Visualization Manager:
       Marker Topic: /point_cloud
       Name: Marker
       Namespaces:
-        {}
+        my_namespace: true
       Queue Size: 100
+      Value: true
+    - Alpha: 0.699999988
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /grid_map
+      Unreliable: true
+      Use Timestamp: false
       Value: true
   Enabled: true
   Global Options:
@@ -111,11 +113,11 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 112.23378
+      Scale: 129.877487
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      X: 0.829195797
-      Y: 0.613481522
+      X: 2.57054877
+      Y: 0.481532216
     Saved: ~
 Window Geometry:
   Displays:

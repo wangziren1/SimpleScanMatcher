@@ -1,18 +1,18 @@
 #include "ros/ros.h"
 #include "sensor_msgs/LaserScan.h"
 #include "sensor_msgs/PointCloud.h"
-#include <visualization_msgs/Marker.h>
+#include "visualization_msgs/Marker.h"
+#include "nav_msgs/OccupancyGrid.h"
 
 #include <cmath>
 #include <vector>
 #include <memory>
-#include <chrono>
 #include <iostream>
 #include "scanmatch/correlative_scan_match.h"
+#include "scanmatch/optimization_scan_match.h"
 #include "scanmatch/map.h"
 
 using namespace std;
-using namespace std::chrono;
 
 class Node {
  public:
@@ -24,15 +24,17 @@ class Node {
 	vector<Point> TransformPointCloudFromLaserToWorld(const Pose& pose, const vector<Point>& 
 			point_cloud);
 	void Visualize(const vector<Point>& point_cloud);
-
+	void MapCallBack(const ros::WallTimerEvent&);
   ros::NodeHandle n_;
 	ros::Subscriber sub_;
 	ros::Publisher trajectory_pub_;
 	ros::Publisher map_pub_;
+	ros::WallTimer map_timer_;
 	ros::Publisher point_cloud_pub_;
 	vector<Pose> poses_;
 	Map map_;
 	CorrelativeScanMatcher correlative_scan_matcher_;
+	OptimizationScanMatch optimization_Scan_Match_;
 	bool first_scan_;
 };
 
@@ -40,7 +42,8 @@ Node::Node() {
 	sub_ = n_.subscribe("scan", 100, &Node::CallBack, this);
 	trajectory_pub_ = n_.advertise<visualization_msgs::Marker>("trajectory", 50);
 	point_cloud_pub_ = n_.advertise<visualization_msgs::Marker>("point_cloud", 50);
-	
+	map_pub_ = n_.advertise<nav_msgs::OccupancyGrid>("grid_map", 50);
+	map_timer_ = n_.createWallTimer(ros::WallDuration(1.0), &Node::MapCallBack, this);
 	first_scan_ = true;
 	// initial pose
 	poses_.push_back(Pose(0, 0, 0));
@@ -56,9 +59,11 @@ void Node::CallBack(const sensor_msgs::LaserScan::ConstPtr& scan) {
 		vector<Point> point_cloud = GetPointCloud(scan);
 		Pose pose = correlative_scan_matcher_.ComputePose(initial_pose,
 				point_cloud, map_);
+		// Pose ceres_pose = optimization_Scan_Match_.Match(initial_pose, point_cloud, map_);
 		poses_.push_back(pose);
-		vector<Point> world_point_cloud = TransformPointCloudFromLaserToWorld(pose,
-				point_cloud);
+		vector<Point> world_point_cloud = TransformPointCloudFromLaserToWorld(
+				pose, point_cloud);
+		// optimization_Scan_Match_.Test(world_point_cloud, map_);
 		map_.Update(pose, world_point_cloud);
 		Visualize(world_point_cloud);
 	}
@@ -139,6 +144,27 @@ void Node::Visualize(const vector<Point>& point_cloud) {
 
 	trajectory_pub_.publish(trajectory_line);
 	point_cloud_pub_.publish(current_points);
+}
+
+void Node::MapCallBack(const ros::WallTimerEvent&) {
+	const auto& discrete_map = map_.DiscreteProbabilityMap();
+	nav_msgs::OccupancyGrid map_msg;
+	map_msg.header.frame_id = "/my_frame";
+	map_msg.header.stamp = ros::Time::now();
+	map_msg.info.resolution = map_.Resolution();
+	map_msg.info.width = discrete_map[0].size();
+	map_msg.info.height = discrete_map.size();
+	map_msg.info.origin.orientation.w = 1.0;
+	map_msg.info.origin.position.x = -map_.Origin().x_;
+	map_msg.info.origin.position.y = -map_.Origin().y_;
+	map_msg.info.origin.position.z = 0;
+	map_msg.data.reserve(discrete_map[0].size() * discrete_map.size());
+	for (const auto& row : discrete_map) {
+		for (const auto& p : row) {
+			map_msg.data.push_back(p);
+		}
+	}
+	map_pub_.publish(map_msg);
 }
 
 
