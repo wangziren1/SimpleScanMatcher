@@ -1,0 +1,18 @@
+# CorrelativeScanMatcher
+max_angle: 20
+angle_step: 0.5
+search_window_width: 5
+search_window_height: 5
+
+# OptimizationScanMatch
+use_nonmonotonic_steps: false
+max_num_iterations: 20
+num_threads: 1
+
+# map
+resolution: 0.05
+width: 300
+height: 300
+prior_probability: 0.5
+hit_probability: 0.55
+miss_probability: 0.49

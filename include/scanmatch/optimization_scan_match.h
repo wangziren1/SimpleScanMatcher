@@ -4,6 +4,7 @@
 #include "ceres/ceres.h"
 #include "Eigen/Core"
 #include "Eigen/Geometry"
+#include "scanmatch/common.h"
 
 class GridArrayAdapter {
  public:
@@ -146,7 +147,7 @@ class RotationDeltaCostFunctor2D {
 
 class OptimizationScanMatch {
  public:
-  OptimizationScanMatch();
+  OptimizationScanMatch(const YAML::Node& config);
   Pose Match(const Pose& initial_pose, const vector<Point>& point_cloud, 
       const Map& map);
   void Test(const vector<Point>& world_point_cloud, 

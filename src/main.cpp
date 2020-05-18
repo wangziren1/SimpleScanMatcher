@@ -11,12 +11,18 @@
 #include "scanmatch/correlative_scan_match.h"
 #include "scanmatch/optimization_scan_match.h"
 #include "scanmatch/map.h"
+#include "scanmatch/common.h"
 
 using namespace std;
 
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+
+DEFINE_string(configuration_file, "config.yaml", "configuration file");
+
 class Node {
  public:
-	Node();
+	Node(const YAML::Node& config);
 	
  private:
   void CallBack(const sensor_msgs::LaserScan::ConstPtr& scan);
@@ -38,12 +44,15 @@ class Node {
 	bool first_scan_;
 };
 
-Node::Node() {
+Node::Node(const YAML::Node& config) : correlative_scan_matcher_(config),
+		optimization_Scan_Match_(config),map_(config) {
 	sub_ = n_.subscribe("scan", 100, &Node::CallBack, this);
 	trajectory_pub_ = n_.advertise<visualization_msgs::Marker>("trajectory", 50);
-	point_cloud_pub_ = n_.advertise<visualization_msgs::Marker>("point_cloud", 50);
+	point_cloud_pub_ = n_.advertise<visualization_msgs::Marker>("point_cloud", 
+			50);
 	map_pub_ = n_.advertise<nav_msgs::OccupancyGrid>("grid_map", 50);
-	map_timer_ = n_.createWallTimer(ros::WallDuration(1.0), &Node::MapCallBack, this);
+	map_timer_ = n_.createWallTimer(ros::WallDuration(1.0), &Node::MapCallBack,
+			this);
 	first_scan_ = true;
 	// initial pose
 	poses_.push_back(Pose(0, 0, 0));
@@ -169,8 +178,13 @@ void Node::MapCallBack(const ros::WallTimerEvent&) {
 
 
 int main(int argc, char **argv) {
+	google::InitGoogleLogging(argv[0]);
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
+	FLAGS_logtostderr = 1;
+	LOG(INFO) << "configuration_file:" << FLAGS_configuration_file << endl;
+	YAML::Node config = YAML::LoadFile(FLAGS_configuration_file);
 	ros::init(argc, argv, "scan_matcher");
-	Node node;
+	Node node(config);
 	ros::spin();
 
 	return 0;

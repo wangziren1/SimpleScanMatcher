@@ -3,6 +3,7 @@ project(scanmatch)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
+set(CMAKE_BUILD_TYPE release)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -21,6 +22,8 @@ find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
+find_package(yaml-cpp REQUIRED)
+include_directories(${YAML_CPP_INCLUDE_DIR})
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -144,11 +147,11 @@ add_executable(${PROJECT_NAME}_node src/main.cpp
                src/optimization_scan_match.cpp
                src/map.cpp
                src/pose_and_point.cpp)
-add_executable(beam_test src/test.cpp 
+add_executable(bresenham_test src/bresenham_test.cpp 
                src/map.cpp)
 add_executable(map_test src/map_test.cpp 
                src/map.cpp)
-add_executable(interpolation_test src/interpolation.cpp)
+add_executable(interpolation_test src/interpolation_test.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -162,16 +165,19 @@ add_executable(interpolation_test src/interpolation.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${EIGEN3_LIBRARIES}
+  ${catkin_LIBRARIES} ${CERES_LIBRARIES} ${EIGEN3_LIBRARIES} gflags glog
+  ${YAML_CPP_LIBRARIES}
 )
-target_link_libraries(beam_test
-  ${catkin_LIBRARIES}
+message(${YAML_CPP_INCLUDE_DIR})
+message(${YAML_CPP_LIBRARIES})
+target_link_libraries(bresenham_test
+  ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES}
 )
 target_link_libraries(map_test
-  ${catkin_LIBRARIES}
+  ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES}
 )
 target_link_libraries(interpolation_test
-${catkin_LIBRARIES} ${CERES_LIBRARIES}
+  ${catkin_LIBRARIES} ${CERES_LIBRARIES}
 )
 
 

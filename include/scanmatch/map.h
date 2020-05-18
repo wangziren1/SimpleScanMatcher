@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "scanmatch/pose_and_point.h"
+#include "scanmatch/common.h"
 #include <cmath>
 using std::vector;
 
@@ -13,7 +14,7 @@ const float MaxCost = MaxProb;
 
 class Map {
  public:
-  Map();
+  Map(const YAML::Node& config);
 
   float OffSetX() const {return offset_x_;}
 

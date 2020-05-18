@@ -2,10 +2,17 @@
 #include <chrono>
 #include <iostream>
 #include <iomanip>
+#include <glog/logging.h>
 using namespace std;
 using namespace std::chrono;
 
 #include "scanmatch/correlative_scan_match.h"
+
+CorrelativeScanMatcher::CorrelativeScanMatcher(const YAML::Node& config)
+  : max_angle_(config["max_angle"].as<float>()),
+    angle_step_(config["angle_step"].as<float>()),
+    search_window_width_(config["search_window_width"].as<int>()),
+    search_window_height_(config["search_window_height"].as<int>()) {}
 
 Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
     const vector<Point>& point_cloud, const Map& map) {
@@ -77,7 +84,7 @@ Pose CorrelativeScanMatcher::ComputePose(const Pose& initial_pose,
       rotated_point_cloud_index_].rotated_pose_.x_ + best_candidate.delta_x_;
   best_pose.y_ = rotated_point_clouds[best_candidate.
       rotated_point_cloud_index_].rotated_pose_.y_ + best_candidate.delta_y_;
-  cout << "pose: " << best_pose << " max_score: " << max_score << endl;
+  LOG(INFO) << "pose: " << best_pose << " max_score: " << max_score << endl;
   return best_pose;
 }
 
@@ -120,8 +127,8 @@ Pose CorrelativeScanMatcher::ComputePoseAnother(const Pose& initial_pose,
       }
     }
   }
-  cout << "Total time takes: " << duration_cast<milliseconds>(
+  LOG(INFO) << "Total time takes: " << duration_cast<milliseconds>(
         steady_clock::now() - t1).count() << " ms" << endl;
-  cout << "pose: " << best_pose << " max_score: " << max_score << endl;
+  LOG(INFO) << "pose: " << best_pose << " max_score: " << max_score << endl;
   return best_pose;
 }

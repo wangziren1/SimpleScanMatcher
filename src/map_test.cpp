@@ -1,4 +1,5 @@
 #include "scanmatch/map.h"
+#include "scanmatch/common.h"
 #include <iostream>
 #include <iomanip>
 using namespace std;
@@ -31,7 +32,8 @@ int main() {
   int row_end = 165;
   int col_start = 150;
   int col_end = 165;
-  Map map;
+  YAML::Node config = YAML::LoadFile("config.yaml");
+  Map map(config);
   auto& cost_map = map.CostMap();
   PrintCostMap(cost_map, row_start, row_end, col_start, col_end);
   Pose pose(0, 0, 0);

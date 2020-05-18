@@ -30,16 +30,21 @@ inline float Clamp(float x) {
   else return x;
 }
 
-Map::Map():resolution_(0.05),width_(300),height_(300),
-    prior_prob_(0.5),hit_prob_(0.55),miss_prob_(0.49),
-    prior_odds_(ProbToOdds(prior_prob_)),
-    hit_odds_(ProbToOdds(hit_prob_)),
-    miss_odds_(ProbToOdds(miss_prob_)),
-    offset_x_(width_ * resolution_ / 2),
-    offset_y_(height_ * resolution_ / 2),
-    unknown_cost_(-1),
-    cost_(height_, vector<float>(width_, unknown_cost_)),
-    discrete_prob_(height_, vector<int>(width_, -1)){
+Map::Map(const YAML::Node& config) 
+    : resolution_(config["resolution"].as<float>()),
+      width_(config["width"].as<int>()),
+      height_(config["height"].as<int>()),
+      prior_prob_(config["prior_probability"].as<float>()),
+      hit_prob_(config["hit_probability"].as<float>()),
+      miss_prob_(config["miss_probability"].as<float>()),
+      prior_odds_(ProbToOdds(prior_prob_)),
+      hit_odds_(ProbToOdds(hit_prob_)),
+      miss_odds_(ProbToOdds(miss_prob_)),
+      offset_x_(width_ * resolution_ / 2),
+      offset_y_(height_ * resolution_ / 2),
+      unknown_cost_(-1),
+      cost_(height_, vector<float>(width_, unknown_cost_)),
+      discrete_prob_(height_, vector<int>(width_, -1)) {
 }
 
 void Map::Update(const Pose& pose, const vector<Point>& point_cloud) {

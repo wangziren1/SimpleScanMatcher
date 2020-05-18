@@ -2,6 +2,7 @@
 #define CORRELATIVE_SCAN_MATCH_H
 #include <vector>
 
+#include "scanmatch/common.h"
 #include "scanmatch/pose_and_point.h"
 #include "scanmatch/map.h"
 
@@ -25,9 +26,7 @@ struct Candidate {
 
 class CorrelativeScanMatcher {
  public:
-  CorrelativeScanMatcher():max_angle_(20),angle_step_(1),search_window_width_(5),
-    search_window_height_(5) {}
-    
+  CorrelativeScanMatcher(const YAML::Node& config);
   Pose ComputePose(const Pose& initial_pose, const vector<Point>& point_cloud, 
       const Map& map);
   Pose ComputePoseAnother(const Pose& initial_pose, vector<Point>& point_cloud, 

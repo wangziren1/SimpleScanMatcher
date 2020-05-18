@@ -1,5 +1,7 @@
 <launch>
-<node pkg="scanmatch" type="scanmatch_node" name="scanmatch_node" output="screen"/>
+<node pkg="scanmatch" type="scanmatch_node" name="scanmatch_node"
+      args="-configuration_file $(find scanmatch)/config/config.yaml" 
+      output="screen"/>
 <node pkg="rviz" type="rviz" name="rviz" required="true"
           args="-d $(find scanmatch)/rviz/scanmatcher.rviz"/>
 <!-- <node pkg="rosbag" type="play" name="playbag" 

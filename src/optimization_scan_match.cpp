@@ -1,12 +1,16 @@
 #include "scanmatch/optimization_scan_match.h"
 #include <iostream>
 #include <iomanip>
+#include <glog/logging.h>
 using namespace std;
 
-OptimizationScanMatch::OptimizationScanMatch() {
-  ceres_solver_options_.use_nonmonotonic_steps = false;
-  ceres_solver_options_.max_num_iterations = 20;
-  ceres_solver_options_.num_threads = 1;
+OptimizationScanMatch::OptimizationScanMatch(const YAML::Node& config) {
+  ceres_solver_options_.use_nonmonotonic_steps = 
+    config["use_nonmonotonic_steps"].as<bool>();
+  cout << config["use_nonmonotonic_steps"].as<bool>() << endl;
+  ceres_solver_options_.max_num_iterations = 
+    config["max_num_iterations"].as<int>();
+  ceres_solver_options_.num_threads = config["num_threads"].as<int>();
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
@@ -34,8 +38,8 @@ Pose OptimizationScanMatch::Match(const Pose& initial_pose,
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   Pose optimized_pose(ceres_pose_estimate[0], ceres_pose_estimate[1], 
       ceres_pose_estimate[2]);
-  cout << "ceres pose: " << optimized_pose << endl;
-  cout << summary.BriefReport() << "\n";
+  LOG(INFO) << "ceres pose: " << optimized_pose << endl;
+  LOG(INFO) << summary.BriefReport() << "\n";
 
   return optimized_pose;
 }
